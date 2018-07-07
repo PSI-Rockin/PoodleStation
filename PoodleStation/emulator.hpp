@@ -2,13 +2,24 @@
 #define EMULATOR_HPP
 #include <cstdint>
 #include "cpu.hpp"
+#include "dma.hpp"
+#include "gpu.hpp"
+#include "timers.hpp"
 
 class Emulator
 {
     private:
+        uint8_t* RAM;
         uint8_t* BIOS;
 
+        int frames;
+
         CPU cpu;
+        DMA dma;
+        GPU gpu;
+        Timers timers;
+
+        uint32_t I_STAT, I_MASK;
     public:
         Emulator();
         ~Emulator();
@@ -16,6 +27,8 @@ class Emulator
         void load_BIOS(uint8_t* BIOS);
         void reset();
         void run();
+
+        void request_IRQ(int id);
 
         void get_resolution(int& w, int& h);
         uint32_t* get_framebuffer();

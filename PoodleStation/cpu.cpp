@@ -77,6 +77,15 @@ void CPU::run()
                 printf("[CPU] Invalid PC address $%08X!\n", PC);
                 exit(1);
             }
+            if (PC == 0xA0 || PC == 0xB0 || PC == 0xC0)
+            {
+                uint8_t function = get_gpr(9);
+                if (!(PC == 0xB0 && function == 0x3D))
+                    printf("[CPU] Jump to function table $%02X (function: $%02X)\n", PC, function);
+
+                else
+                    printf("%c", get_gpr(4));
+            }
         }
         else
             load_delay--;

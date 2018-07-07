@@ -12,7 +12,10 @@ SOURCES += main.cpp \
     cpu.cpp \
     cop0.cpp \
     interpreter.cpp \
-    disasm.cpp
+    disasm.cpp \
+    timers.cpp \
+    dma.cpp \
+    gpu.cpp
 
 HEADERS += \
     emuwindow.hpp \
@@ -21,4 +24,7 @@ HEADERS += \
     cpu.hpp \
     cop0.hpp \
     interpreter.hpp \
-    disasm.hpp
+    disasm.hpp \
+    timers.hpp \
+    dma.hpp \
+    gpu.hpp
