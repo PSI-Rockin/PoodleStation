@@ -36,7 +36,7 @@ void DMA::reset(uint8_t* RAM)
     }
 }
 
-void DMA::run()
+bool DMA::run()
 {
     for (int i = 0; i < 7; i++)
     {
@@ -53,9 +53,11 @@ void DMA::run()
                         process_OTC();
                         break;
                 }
+                return true;
             }
         }
     }
+    return false;
 }
 
 void DMA::process_GPU()
@@ -63,7 +65,7 @@ void DMA::process_GPU()
     DMA_Channel* GPU_chan = &channels[2];
     switch (GPU_chan->sync_mode)
     {
-        case 1:
+        case 1: //DMA request mode
             gpu->write_GP0(*(uint32_t*)&RAM[GPU_chan->addr]);
             GPU_chan->word_count--;
             GPU_chan->addr += 4;
@@ -120,8 +122,10 @@ void DMA::end_transfer(int index)
     channels[index].active = false;
     channels[index].busy = false;
 
+    bool old_IRQ = ICR.master_IRQ_enable && (ICR.STAT & ICR.MASK);
     ICR.STAT |= 1 << index;
-    if (ICR.STAT & ICR.MASK)
+    bool new_IRQ = ICR.master_IRQ_enable && (ICR.STAT & ICR.MASK);
+    if (!old_IRQ && new_IRQ)
         e->request_IRQ(3);
 }
 

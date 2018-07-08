@@ -45,14 +45,15 @@ void Emulator::run()
     bool VBLANK_set = false;
     for (int cycles = 0; cycles < CYCLES_PER_FRAME; cycles++)
     {
-        cpu.run();
-        dma.run();
+        if (!dma.run())
+            cpu.run();
         timers.count(1);
         if (cycles >= CYCLES_PER_VBLANK && !VBLANK_set)
         {
             printf("VBLANK: %d frames\n", frames);
+            //cpu.set_disassembly(frames == 176);
             VBLANK_set = true;
-            //request_IRQ(0);
+            request_IRQ(0);
             gpu.render_frame();
         }
     }
@@ -104,6 +105,7 @@ uint16_t Emulator::read16(uint32_t addr)
         printf("[SPU] Read16 $%08X\n", addr);
         return 0;
     }
+    printf("[CPU] Read16: $%08X\n", addr);
     switch (addr)
     {
         case 0x1F801070:
@@ -123,6 +125,7 @@ uint32_t Emulator::read32(uint32_t addr)
         return *(uint32_t*)&BIOS[addr & 0x7FFFF];
     if (addr >= 0x1F801100 && addr < 0x1F801130)
         return timers.read16(addr);
+    //printf("[CPU] Read32: $%08X\n", addr);
     switch (addr)
     {
         case 0x1F801070:

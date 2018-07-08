@@ -50,7 +50,7 @@ class DMA
         DMA(Emulator* e, GPU* gpu);
 
         void reset(uint8_t* RAM);
-        void run();
+        bool run();
 
         uint32_t read_control(int index);
 

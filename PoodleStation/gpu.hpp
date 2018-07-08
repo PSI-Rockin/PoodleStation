@@ -42,10 +42,22 @@ struct DisplayStart
 struct Vertex
 {
     uint16_t x, y;
+    uint16_t s, t;
     uint32_t color;
 
     Vertex();
     Vertex(uint32_t v, uint32_t color);
+
+    void set_texcoords(uint32_t param);
+};
+
+struct RenderContext
+{
+    uint16_t palette;
+    uint16_t texpage;
+    bool opaque;
+    bool textured;
+    bool texture_blending;
 };
 
 class GPU
@@ -57,6 +69,7 @@ class GPU
         ClipArea clip_area;
         DrawOffset draw_offset;
         TexWindow tex_window;
+        RenderContext context;
         bool force_mask_draw;
         bool check_mask;
         bool is_odd_frame;
@@ -70,6 +83,10 @@ class GPU
         int cmd_params;
         int params_needed;
 
+        bool IRQ;
+
+        uint32_t transfer_dir;
+
         uint16_t transfer_x, transfer_y;
         uint32_t transfer_w, transfer_h;
         uint32_t transfer_x_bound;
@@ -77,12 +94,16 @@ class GPU
         bool read_transfer;
         bool write_transfer;
 
+        bool display_enabled;
+
         void transfer_to_VRAM();
 
         int32_t orient2D(Vertex& v1, Vertex& v2, Vertex& v3);
         void draw_quad(bool textured, bool shaded);
-        void draw_tri(Vertex vertices[], bool textured, bool shaded);
+        void draw_tri(Vertex vertices[]);
         void draw_pixel(uint16_t x, uint16_t y, uint32_t color);
+
+        uint16_t tex_lookup(uint8_t s, uint8_t t);
     public:
         GPU();
         ~GPU();

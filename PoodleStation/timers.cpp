@@ -29,10 +29,10 @@ void Timers::count(int cycles)
         if (timers[1].clock_source & 0x1)
         {
             timers[1].cycles += cycles;
-            if (timers[1].cycles >= 1375)
+            if (timers[1].cycles >= 2000)
             {
                 timers[1].count++;
-                timers[1].cycles -= 1375;
+                timers[1].cycles -= 2000;
                 target_overflow_check(1, 1);
             }
         }
@@ -55,6 +55,7 @@ void Timers::target_overflow_check(int index, int cycles)
     int target = timers[index].target;
     if ((count - cycles) < target && count >= target)
     {
+        printf("Target check!\n");
         timers[index].reached_target = true;
         if (timers[index].reset_on_target)
             timers[index].count -= target;
@@ -68,12 +69,12 @@ void Timers::target_overflow_check(int index, int cycles)
 
 uint16_t Timers::read16(uint32_t addr)
 {
-    printf("[Timer] Read16: $%08X\n", addr);
     int index = (addr >> 4) & 0x3;
     int reg = (addr >> 2) & 0x3;
     switch (reg)
     {
         case 0:
+            printf("[Timers] Read timer %d count: $%04X\n", index, timers[index].count);
             return timers[index].count;
         case 1:
         {
@@ -89,9 +90,11 @@ uint16_t Timers::read16(uint32_t addr)
             reg |= timers[index].IRQ << 10;
             reg |= timers[index].reached_target << 11;
             reg |= timers[index].reached_overflow << 12;
+            printf("[Timers] Read timer %d mode: $%04X\n", index, reg);
             return reg;
         }
         case 2:
+            printf("[Timers] Read timer %d target: $%04X\n", index, timers[index].target);
             return timers[index].target;
         default:
             return 0;
