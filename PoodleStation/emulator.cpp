@@ -4,7 +4,7 @@
 #define CYCLES_PER_FRAME 550000
 #define CYCLES_PER_VBLANK CYCLES_PER_FRAME * 0.90
 
-Emulator::Emulator() : cpu(this)
+Emulator::Emulator() : cpu(this), dma(this, &gpu)
 {
     BIOS = nullptr;
     RAM = nullptr;
@@ -30,7 +30,8 @@ void Emulator::reset()
     if (!RAM)
         RAM = new uint8_t[1024 * 1024 * 2];
     cpu.reset();
-    dma.reset();
+    dma.reset(RAM);
+    gpu.reset();
     timers.reset();
     frames = 0;
 
@@ -44,6 +45,7 @@ void Emulator::run()
     for (int cycles = 0; cycles < CYCLES_PER_FRAME; cycles++)
     {
         cpu.run();
+        dma.run();
         timers.count(1);
         if (cycles >= CYCLES_PER_VBLANK && !VBLANK_set)
         {
@@ -116,16 +118,24 @@ uint32_t Emulator::read32(uint32_t addr)
         return *(uint32_t*)&RAM[addr & 0x1FFFFF];
     if (addr >= 0x1FC00000)
         return *(uint32_t*)&BIOS[addr & 0x7FFFF];
+    if (addr >= 0x1F801100 && addr < 0x1F801130)
+        return timers.read16(addr);
     switch (addr)
     {
         case 0x1F801070:
             return I_STAT;
         case 0x1F801074:
             return I_MASK;
+        case 0x1F8010A8:
+            return dma.read_control(2);
+        case 0x1F8010E8:
+            return dma.read_control(6);
         case 0x1F8010F0:
             return dma.read_PCR();
         case 0x1F8010F4:
             return dma.read_ICR();
+        case 0x1F801810:
+            return gpu.read_response();
         case 0x1F801814:
             return gpu.read_stat();
     }
@@ -212,6 +222,24 @@ void Emulator::write32(uint32_t addr, uint32_t value)
             I_MASK = value;
             cpu.interrupt_check(I_STAT & I_MASK);
             return;
+        case 0x1F8010A0:
+            dma.write_addr(2, value);
+            return;
+        case 0x1F8010A4:
+            dma.write_block(2, value);
+            return;
+        case 0x1F8010A8:
+            dma.write_control(2, value);
+            return;
+        case 0x1F8010E0:
+            dma.write_addr(6, value);
+            return;
+        case 0x1F8010E4:
+            dma.write_block(6, value);
+            return;
+        case 0x1F8010E8:
+            dma.write_control(6, value);
+            return;
         case 0x1F8010F0:
             dma.write_PCR(value);
             return;
@@ -220,6 +248,9 @@ void Emulator::write32(uint32_t addr, uint32_t value)
             return;
         case 0x1F801810:
             gpu.write_GP0(value);
+            return;
+        case 0x1F801814:
+            gpu.write_GP1(value);
             return;
         case 0xFFFE0130:
             return;

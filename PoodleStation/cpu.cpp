@@ -57,7 +57,7 @@ void CPU::run()
     if (can_disassemble)
     {
         printf("[CPU] [$%08X] $%08X - %s\n", PC, instr, Disasm::disasm_instr(instr, PC).c_str());
-        //print_state();
+        print_state();
     }
     Interpreter::interpret(*this, instr);
 

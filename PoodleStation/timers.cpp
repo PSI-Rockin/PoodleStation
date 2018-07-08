@@ -18,6 +18,16 @@ void Timers::reset()
 
 void Timers::count(int cycles)
 {
+    if (!timers[0].sync)
+    {
+        timers[0].count += cycles;
+        target_overflow_check(0, cycles);
+    }
+    if (!timers[1].sync)
+    {
+        timers[1].count += cycles;
+        target_overflow_check(1, cycles);
+    }
     if (!timers[2].sync || (timers[2].sync_mode != 0 && timers[2].sync_mode != 3))
     {
         timers[2].count += cycles;
@@ -42,11 +52,43 @@ void Timers::target_overflow_check(int index, int cycles)
     }
 }
 
+uint16_t Timers::read16(uint32_t addr)
+{
+    printf("[Timer] Read16: $%08X\n", addr);
+    int index = (addr >> 4) & 0x3;
+    int reg = (addr >> 2) & 0x3;
+    switch (reg)
+    {
+        case 0:
+            return timers[index].count;
+        case 1:
+        {
+            uint16_t reg = 0;
+            reg |= timers[index].sync;
+            reg |= timers[index].sync_mode << 1;
+            reg |= timers[index].reset_on_target << 3;
+            reg |= timers[index].IRQ_on_target << 4;
+            reg |= timers[index].IRQ_on_overflow << 5;
+            reg |= timers[index].IRQ_repeat << 6;
+            reg |= timers[index].IRQ_toggle << 7;
+            reg |= timers[index].clock_source << 8;
+            reg |= timers[index].IRQ << 10;
+            reg |= timers[index].reached_target << 11;
+            reg |= timers[index].reached_overflow << 12;
+            return reg;
+        }
+        case 2:
+            return timers[index].target;
+        default:
+            return 0;
+    }
+}
+
 void Timers::write16(uint32_t addr, uint16_t value)
 {
     printf("[Timer] Write16 $%08X: $%04X\n", addr, value);
     int index = (addr >> 4) & 0x3;
-    int reg = addr >> 2;
+    int reg = (addr >> 2) & 0x3;
     switch (reg)
     {
         case 0:
