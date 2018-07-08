@@ -11,6 +11,7 @@ void Timers::reset()
     for (int i = 0; i < 3; i++)
     {
         timers[i].count = 0;
+        timers[i].cycles = 0;
         timers[i].target = 0xFFFF;
         write16((i << 4) | 0x4, 0);
     }
@@ -25,8 +26,21 @@ void Timers::count(int cycles)
     }
     if (!timers[1].sync)
     {
-        timers[1].count += cycles;
-        target_overflow_check(1, cycles);
+        if (timers[1].clock_source & 0x1)
+        {
+            timers[1].cycles += cycles;
+            if (timers[1].cycles >= 1375)
+            {
+                timers[1].count++;
+                timers[1].cycles -= 1375;
+                target_overflow_check(1, 1);
+            }
+        }
+        else
+        {
+            timers[1].count += cycles;
+            target_overflow_check(1, cycles);
+        }
     }
     if (!timers[2].sync || (timers[2].sync_mode != 0 && timers[2].sync_mode != 3))
     {

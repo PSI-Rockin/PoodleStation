@@ -587,7 +587,7 @@ void Interpreter::div(CPU &cpu, uint32_t instruction)
     if (!op2)
     {
         cpu.set_HI(op1);
-        if (op1 > 0x80000000)
+        if (op1 < 0)
             cpu.set_LO(1);
         else
             cpu.set_LO(0xFFFFFFFF);

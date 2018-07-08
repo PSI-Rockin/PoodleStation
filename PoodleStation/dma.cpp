@@ -61,25 +61,38 @@ void DMA::run()
 void DMA::process_GPU()
 {
     DMA_Channel* GPU_chan = &channels[2];
-    if (!GPU_chan->word_count)
+    switch (GPU_chan->sync_mode)
     {
-        if (GPU_chan->next_addr == 0xFFFFFF)
-            end_transfer(2);
-        else
-        {
-            GPU_chan->addr = GPU_chan->next_addr;
+        case 1:
+            gpu->write_GP0(*(uint32_t*)&RAM[GPU_chan->addr]);
+            GPU_chan->word_count--;
+            GPU_chan->addr += 4;
+            if (!GPU_chan->word_count)
+                end_transfer(2);
+            break;
+        case 2: //Linked list mode
+            if (!GPU_chan->word_count)
+            {
+                if (GPU_chan->next_addr == 0xFFFFFF)
+                    end_transfer(2);
+                else
+                {
+                    GPU_chan->addr = GPU_chan->next_addr;
 
-            uint32_t pointer = *(uint32_t*)&RAM[GPU_chan->addr];
-            GPU_chan->next_addr = pointer & 0xFFFFFF;
-            GPU_chan->word_count = pointer >> 24;
-        }
-    }
-    else
-    {
-        GPU_chan->word_count--;
-        GPU_chan->addr += 4;
-        uint32_t data = *(uint32_t*)&RAM[GPU_chan->addr];
-        gpu->write_GP0(data);
+                    uint32_t pointer = *(uint32_t*)&RAM[GPU_chan->addr];
+                    //printf("[GPU DMA] Pointer: $%08X\n", pointer);
+                    GPU_chan->next_addr = pointer & 0xFFFFFF;
+                    GPU_chan->word_count = pointer >> 24;
+                }
+            }
+            else
+            {
+                GPU_chan->word_count--;
+                GPU_chan->addr += 4;
+                uint32_t data = *(uint32_t*)&RAM[GPU_chan->addr];
+                gpu->write_GP0(data);
+            }
+            break;
     }
 }
 
@@ -96,7 +109,7 @@ void DMA::process_OTC()
     else
     {
         *(uint32_t*)&RAM[OTC->addr] = OTC->addr - 4;
-        printf("[OTC] Write $%08X\n", OTC->addr - 4);
+        //printf("[OTC] Write $%08X\n", OTC->addr - 4);
         OTC->addr -= 4;
     }
 }
@@ -122,6 +135,7 @@ uint32_t DMA::read_control(int index)
     reg |= channels[index].chop_dma_size << 16;
     reg |= channels[index].chop_cpu_size << 20;
     reg |= channels[index].active << 24;
+    printf("[DMA] Read %s control: $%08X\n", NAMES[index], reg);
     return reg;
 }
 

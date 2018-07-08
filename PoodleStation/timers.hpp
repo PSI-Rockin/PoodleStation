@@ -5,6 +5,7 @@
 struct Timer
 {
     uint32_t count;
+    uint32_t cycles;
     uint16_t target;
 
     //mode variables

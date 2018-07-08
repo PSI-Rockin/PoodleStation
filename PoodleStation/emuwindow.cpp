@@ -55,7 +55,7 @@ EmuWindow::EmuWindow(QWidget *parent) : QMainWindow(parent)
     //Initialize window
     title = "PoodleStation";
     setWindowTitle(QString::fromStdString(title));
-    resize(640, 448);
+    resize(640, 480);
     show();
 }
 
@@ -108,11 +108,11 @@ int EmuWindow::init(int argc, char** argv)
     delete[] BIOS;
     BIOS = nullptr;
 
-    if (file_name)
+    /*if (file_name)
     {
         if (load_exec(file_name, skip_BIOS))
             return 1;
-    }
+    }*/
     emuthread.unpause(GAME_NOT_LOADED);
     return 0;
 }
@@ -184,12 +184,12 @@ void EmuWindow::draw_frame(uint32_t *buffer, int w, int h)
     if (!buffer)
         return;
     final_image = QImage((uint8_t*)buffer, w, h, QImage::Format_RGBA8888);
-    resize(w, h);
     update();
 }
 
 void EmuWindow::paintEvent(QPaintEvent *event)
 {
+    event->accept();
     QPainter painter(this);
     painter.fillRect(rect(), Qt::black);
 

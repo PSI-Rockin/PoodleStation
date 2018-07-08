@@ -52,12 +52,12 @@ uint32_t CPU::translate_addr(uint32_t addr)
 
 void CPU::run()
 {
-    //bool old_int = cop0.status.IEc && (cop0.status.Im & cop0.cause.int_pending);
+    bool old_int = cop0.status.IEc && (cop0.status.Im & cop0.cause.int_pending);
     uint32_t instr = read32(PC);
     if (can_disassemble)
     {
         printf("[CPU] [$%08X] $%08X - %s\n", PC, instr, Disasm::disasm_instr(instr, PC).c_str());
-        print_state();
+        //print_state();
     }
     Interpreter::interpret(*this, instr);
 
@@ -92,7 +92,11 @@ void CPU::run()
     }
 
     if (cop0.status.IEc && (cop0.status.Im & cop0.cause.int_pending))
+    {
+        //if (!old_int)
+            //exit(1);
         interrupt();
+    }
 }
 
 void CPU::print_state()

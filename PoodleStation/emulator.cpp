@@ -30,6 +30,7 @@ void Emulator::reset()
     if (!RAM)
         RAM = new uint8_t[1024 * 1024 * 2];
     cpu.reset();
+    //cpu.set_disassembly(true);
     dma.reset(RAM);
     gpu.reset();
     timers.reset();
@@ -51,9 +52,11 @@ void Emulator::run()
         {
             printf("VBLANK: %d frames\n", frames);
             VBLANK_set = true;
-            request_IRQ(0);
+            //request_IRQ(0);
+            gpu.render_frame();
         }
     }
+    gpu.new_frame();
     frames++;
 }
 
@@ -72,7 +75,7 @@ void Emulator::get_resolution(int &w, int &h)
 
 uint32_t* Emulator::get_framebuffer()
 {
-    return nullptr;
+    return gpu.get_framebuffer();
 }
 
 uint8_t Emulator::read8(uint32_t addr)
@@ -145,6 +148,8 @@ uint32_t Emulator::read32(uint32_t addr)
 
 void Emulator::write8(uint32_t addr, uint8_t value)
 {
+    if (addr >= 0x00138CFC && addr < 0x00138D00)
+        printf("Write8 special $%08X: $%02X\n", addr, value);
     if (addr < 0x00200000)
     {
         RAM[addr & 0x1FFFFF] = value;
@@ -162,6 +167,8 @@ void Emulator::write8(uint32_t addr, uint8_t value)
 
 void Emulator::write16(uint32_t addr, uint16_t value)
 {
+    if (addr >= 0x00138CFC && addr < 0x00138D00)
+        printf("Write16 special $%08X: $%04X\n", addr, value);
     if (addr < 0x00200000)
     {
         *(uint16_t*)&RAM[addr & 0x1FFFFF] = value;
@@ -196,6 +203,8 @@ void Emulator::write16(uint32_t addr, uint16_t value)
 
 void Emulator::write32(uint32_t addr, uint32_t value)
 {
+    if (addr >= 0x00138CFC && addr < 0x00138D00)
+        printf("Write32 special $%08X: $%08X\n", addr, value);
     if (addr < 0x00200000)
     {
         *(uint32_t*)&RAM[addr & 0x1FFFFF] = value;
