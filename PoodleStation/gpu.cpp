@@ -11,8 +11,8 @@ Vertex::Vertex() {}
 
 Vertex::Vertex(uint32_t v, uint32_t color) : color(color)
 {
-    x = v & 0xFFFF;
-    y = v >> 16;
+    x = (int16_t)((v & 0x7FF) << 5) >> 5;
+    y = (int16_t)(((v >> 16) & 0x7FF) << 5) >> 5;
 }
 
 void Vertex::set_texcoords(uint32_t param)
@@ -201,6 +201,9 @@ int32_t GPU::orient2D(Vertex &v1, Vertex &v2, Vertex &v3)
 
 void GPU::draw_tri(Vertex vertices[])
 {
+    uint32_t texpage_x = context.texpage & 0xF;
+    uint32_t texpage_y = ((context.texpage >> 4) & 0x1) * 256;
+    int color_depth = (context.texpage >> 7) & 0x3;
     Vertex v1 = vertices[0], v2 = vertices[1], v3 = vertices[2];
 
     v1.x += draw_offset.x;
@@ -211,15 +214,15 @@ void GPU::draw_tri(Vertex vertices[])
     v2.y += draw_offset.y;
     v3.y += draw_offset.y;
 
-    //printf("[GPU] Draw triangle: (%d, %d) (%d, %d) (%d, %d)\n", v1.x, v1.y, v2.x, v2.y, v3.x, v3.y);
+    printf("[GPU] Draw triangle: (%d, %d) (%d, %d) (%d, %d)\n", v1.x, v1.y, v2.x, v2.y, v3.x, v3.y);
 
     if (orient2D(v1, v2, v3) < 0)
         swap(v2, v3);
 
-    uint32_t min_x = min({v1.x, v2.x, v3.x});
-    uint32_t min_y = min({v1.y, v2.y, v3.y});
-    uint32_t max_x = max({v1.x, v2.x, v3.x});
-    uint32_t max_y = max({v1.y, v2.y, v3.y});
+    int32_t min_x = min({v1.x, v2.x, v3.x});
+    int32_t min_y = min({v1.y, v2.y, v3.y});
+    int32_t max_x = max({v1.x, v2.x, v3.x});
+    int32_t max_y = max({v1.y, v2.y, v3.y});
 
     int32_t A12 = v1.y - v2.y;
     int32_t B12 = v2.x - v1.x;
@@ -251,13 +254,13 @@ void GPU::draw_tri(Vertex vertices[])
 
     bool transparent = false;
 
-    for (uint32_t y = min_y; y <= max_y; y++)
+    for (int32_t y = min_y; y <= max_y; y++)
     {
         int32_t w1 = w1_row;
         int32_t w2 = w2_row;
         int32_t w3 = w3_row;
 
-        for (uint32_t x = min_x; x <= max_x; x++)
+        for (int32_t x = min_x; x <= max_x; x++)
         {
             if ((w1 | w2 | w3) >= 0)
             {
@@ -269,7 +272,7 @@ void GPU::draw_tri(Vertex vertices[])
                     int s = ((float) v1.s * w1 + (float) v2.s * w2 + (float) v3.s * w3) / divider;
                     int t = ((float) v1.t * w1 + (float) v2.t * w2 + (float) v3.t * w3) / divider;
 
-                    uint16_t tex_color = tex_lookup(s, t);
+                    uint16_t tex_color = tex_lookup(texpage_x, texpage_y, s, t, color_depth);
 
                     r = (tex_color & 0x1F) << 3;
                     g = ((tex_color >> 5) & 0x1F) << 3;
@@ -295,6 +298,38 @@ void GPU::draw_tri(Vertex vertices[])
     }
 }
 
+void GPU::draw_rect(Vertex& corner, int width, int height)
+{
+    printf("Draw rect: (%d, %d)\n", corner.x, corner.y);
+    bool transparent = false;
+    for (int y = corner.y; y < corner.y + height; y++)
+    {
+        for (int x = corner.x; x < corner.x + width; x++)
+        {
+            int r = option & 0xFF;
+            int g = (option >> 8) & 0xFF;
+            int b = (option >> 16) & 0xFF;
+            if (context.textured)
+            {
+                int s = (x - corner.x) & 0xFF;
+                int t = (y - corner.y) & 0xFF;
+                uint16_t tex_color = tex_lookup(draw_mode.texbase_x, draw_mode.texbase_y * 256, s, t, draw_mode.tex_colors);
+
+                r = (tex_color & 0x1F) << 3;
+                g = ((tex_color >> 5) & 0x1F) << 3;
+                b = ((tex_color >> 10) & 0x1F) << 3;
+
+                transparent = !tex_color;
+            }
+            if (!transparent)
+            {
+                uint32_t color = r | (g << 8) | (b << 16);
+                draw_pixel(x, y, color);
+            }
+        }
+    }
+}
+
 void GPU::draw_pixel(uint16_t x, uint16_t y, uint32_t color)
 {
     if (x < clip_area.x1 || x > clip_area.x2 || y < clip_area.y1 || y > clip_area.y2)
@@ -310,39 +345,47 @@ void GPU::draw_pixel(uint16_t x, uint16_t y, uint32_t color)
     *(uint16_t*)&VRAM[(x + (y * 1024)) * 2] = final_color;
 }
 
-uint16_t GPU::tex_lookup(uint8_t s, uint8_t t)
+uint16_t GPU::tex_lookup(uint32_t texpage_x, uint32_t texpage_y, uint8_t s, uint8_t t, uint8_t color_depth)
 {
-    int base_x = context.texpage & 0xF;
-    int base_y = context.texpage / 16;
-
-    uint32_t base = ((base_x * 64) + (base_y * 1024)) * 2;
+    uint32_t base = ((texpage_x * 64) + (texpage_y * 1024)) * 2;
     base += (t * 2048);
     //printf("Base: $%08X Texpage: $%08X\n", base, context.texpage);
 
     int pal_index;
     uint16_t color;
-    uint32_t CLUT;
-    switch (draw_mode.tex_colors)
+    uint32_t palette_addr;
+    switch (color_depth)
     {
         case 0:
             //printf("(%d, %d)\n", s, t);
-            CLUT = context.palette * 16 * 2;
+            palette_addr = context.palette * 16 * 2;
             pal_index = *(uint8_t*)&VRAM[base + (s / 2)];
             if (s & 0x1)
                 pal_index >>= 4;
             else
                 pal_index &= 0xF;
-            color = *(uint16_t*)&VRAM[CLUT + (pal_index * 2)];
+            color = *(uint16_t*)&VRAM[palette_addr + (pal_index * 2)];
+            break;
+        case 1:
+            palette_addr = context.palette * 256 * 2;
+            pal_index = *(uint8_t*)&VRAM[base + s];
+            color = *(uint16_t*)&VRAM[palette_addr + (pal_index * 2)];
+            break;
+        case 2:
+        case 3:
+            color = *(uint16_t*)&VRAM[base + (s * 2)];
+            color = 0x8000;
             break;
         default:
-            return 0;
+            printf("[GPU] Unrecognized texture color %d\n", color_depth);
+            exit(1);
     }
     return color;
 }
 
 void GPU::write_GP0(uint32_t value)
 {
-    //printf("[GPU] Write GP0: $%08X\n", value);
+    printf("[GPU] Write GP0: $%08X\n", value);
     if (write_transfer)
     {
         printf("Transfer: $%08X (%d, %d) ($%08X)\n", value, transfer_x, transfer_y, (transfer_x + (transfer_y * 1024)) * 2);
@@ -373,6 +416,11 @@ void GPU::write_GP0(uint32_t value)
             case 0x01:
                 printf("[GPU] Clear cache\n");
                 break;
+            case 0x02:
+                printf("[GPU] Fill VRAM\n");
+                stat.ready_cmd = false;
+                params_needed = 2;
+                break;
             case 0x27:
                 printf("[GPU] Textured three-point polygon: $%08X\n", option);
                 stat.ready_cmd = false;
@@ -384,7 +432,12 @@ void GPU::write_GP0(uint32_t value)
                 params_needed = 4;
                 break;
             case 0x2C:
-                printf("[GPU] Textured four-point polygon: $%08X\n", option);
+                printf("[GPU] Textured four-point polygon, opaque, blended: $%08X\n", option);
+                stat.ready_cmd = false;
+                params_needed = 8;
+                break;
+            case 0x2D:
+                printf("[GPU] Textured four-point polygon, opaque, raw: $%08X\n", option);
                 stat.ready_cmd = false;
                 params_needed = 8;
                 break;
@@ -398,10 +451,15 @@ void GPU::write_GP0(uint32_t value)
                 stat.ready_cmd = false;
                 params_needed = 7;
                 break;
-            case 0x3C:
-                printf("[GPU] Textured shaded four-point polygon: $%08X\n", option);
+            case 0x65:
+                printf("[GPU] Textured rectangle, variable size, opaque, raw: $%08X\n", option);
                 stat.ready_cmd = false;
-                params_needed = 11;
+                params_needed = 3;
+                break;
+            case 0x78:
+                printf("[GPU] Monochrome rectangle, opaque: $%08X\n", option);
+                stat.ready_cmd = false;
+                params_needed = 1;
                 break;
             case 0xA0:
                 printf("[GPU] CPU->VRAM transfer\n");
@@ -466,6 +524,35 @@ void GPU::write_GP0(uint32_t value)
             cmd_params = 0;
             switch (cmd)
             {
+                case 0x02:
+                {
+                    int fill_x = (params[0] & 0xFFFF);
+                    int fill_y = params[0] >> 16;
+
+                    int fill_w = (params[1] & 0xFFFF);
+                    int fill_x_bound = fill_w + fill_x;
+                    int fill_h = (params[1] >> 16) + fill_y;
+
+                    printf("(%d, %d) (%d, %d)\n", fill_x, fill_y, fill_w, fill_h);
+
+                    //The color in option is 24-bit but converted to 15-bit during fill
+                    uint16_t color = (option & 0xFF) >> 3;
+                    color |= ((option >> 8) & 0xFF) >> 3;
+                    color |= ((option >> 16) & 0xFF) >> 3;
+
+                    while (fill_y < fill_h)
+                    {
+                        printf("Fill: (%d, %d)\n", fill_x, fill_y);
+                        *(uint16_t*)&VRAM[(fill_x + (fill_y * 1024)) * 2] = color;
+                        fill_x++;
+                        if (fill_x >= fill_x_bound)
+                        {
+                            fill_x -= fill_w;
+                            fill_y++;
+                        }
+                    }
+                }
+                    break;
                 case 0x28:
                     context.textured = false;
                     context.texture_blending = false;
@@ -475,6 +562,15 @@ void GPU::write_GP0(uint32_t value)
                 case 0x2C:
                     context.textured = true;
                     context.texture_blending = true;
+                    context.opaque = true;
+                    context.palette = params[1] >> 16;
+                    context.texpage = params[3] >> 16;
+                    printf("Palette: $%04X Texpage: $%04X\n", context.palette, context.texpage);
+                    draw_quad(true, false);
+                    break;
+                case 0x2D:
+                    context.textured = true;
+                    context.texture_blending = false;
                     context.opaque = true;
                     context.palette = params[1] >> 16;
                     context.texpage = params[3] >> 16;
@@ -494,7 +590,35 @@ void GPU::write_GP0(uint32_t value)
                 }
                     break;
                 case 0x38:
+                    context.textured = false;
+                    context.texture_blending = false;
+                    context.opaque = true;
                     draw_quad(false, true);
+                    break;
+                case 0x65:
+                {
+                    context.textured = true;
+                    context.texture_blending = false;
+                    context.opaque = true;
+                    context.palette = params[1] >> 16;
+                    Vertex corner;
+                    corner = Vertex(params[0], option);
+                    corner.set_texcoords(params[1]);
+
+                    int w = params[2] & 0xFFFF;
+                    int h = params[2] >> 16;
+
+                    draw_rect(corner, w, h);
+                }
+                    break;
+                case 0x78:
+                {
+                    context.textured = false;
+                    context.opaque = true;
+                    Vertex corner;
+                    corner = Vertex(params[0], option);
+                    draw_rect(corner, 16, 16);
+                }
                     break;
                 case 0xA0:
                     transfer_x = params[0] & 0xFFFF;
@@ -514,6 +638,8 @@ void GPU::write_GP0(uint32_t value)
                     printf("(%d, %d) (%d, %d)\n", transfer_x, transfer_y, transfer_w, transfer_h);
                     read_transfer = true;
                     break;
+                default:
+                    exit(1);
             }
         }
     }

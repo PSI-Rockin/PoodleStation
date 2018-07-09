@@ -796,6 +796,9 @@ void Interpreter::cop(CPU &cpu, uint32_t instruction)
         case 0x010:
             cpu.rfe();
             break;
+        case 0x206:
+            ctc(cpu, instruction);
+            break;
         default:
             unknown_op("cop", op, instruction);
     }
@@ -815,6 +818,14 @@ void Interpreter::mtc(CPU &cpu, uint32_t instruction)
     uint8_t reg = (instruction >> 16) & 0x1F;
     uint8_t cop_reg = (instruction >> 11) & 0x1F;
     cpu.mtc(cop_id, cop_reg, reg);
+}
+
+void Interpreter::ctc(CPU &cpu, uint32_t instruction)
+{
+    uint8_t cop_id = (instruction >> 26) & 0x3;
+    uint8_t reg = (instruction >> 16) & 0x1F;
+    uint8_t cop_reg = (instruction >> 11) & 0x1F;
+    cpu.ctc(cop_id, cop_reg, reg);
 }
 
 void Interpreter::unknown_op(const char *type, uint16_t op, uint32_t instruction)

@@ -73,6 +73,7 @@ namespace Interpreter
     void mfc(CPU& cpu, uint32_t instruction);
     void mtc(CPU& cpu, uint32_t instruction);
     void rfe(CPU& cpu, uint32_t instruction);
+    void ctc(CPU& cpu, uint32_t instruction);
 
     void unknown_op(const char* type, uint16_t op, uint32_t instruction);
 };

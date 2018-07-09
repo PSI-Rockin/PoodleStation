@@ -1,6 +1,7 @@
 #ifndef EMULATOR_HPP
 #define EMULATOR_HPP
 #include <cstdint>
+#include "cdrom.hpp"
 #include "cpu.hpp"
 #include "dma.hpp"
 #include "gpu.hpp"
@@ -14,6 +15,7 @@ class Emulator
 
         int frames;
 
+        CDROM cdrom;
         CPU cpu;
         DMA dma;
         GPU gpu;

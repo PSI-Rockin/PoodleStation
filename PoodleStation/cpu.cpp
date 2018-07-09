@@ -200,7 +200,21 @@ void CPU::mtc(int cop_id, int cop_reg, int reg)
             cop0.mtc(cop_reg, bark);
             break;
         default:
-            printf("\n[CPU] MTC: Unknown COP%d", cop_id);
+            printf("[CPU] MTC: Unknown COP%d\n", cop_id);
+            exit(1);
+    }
+}
+
+void CPU::ctc(int cop_id, int cop_reg, int reg)
+{
+    uint32_t bark = get_gpr(reg);
+    switch (cop_id)
+    {
+        case 2:
+            gte.ctc(cop_reg, bark);
+            break;
+        default:
+            printf("[CPU] CTC: Unknown COP%d\n", cop_id);
             exit(1);
     }
 }

@@ -5,6 +5,7 @@
 #include <cstdlib>
 #include <cstdio>
 #include "cop0.hpp"
+#include "gte.hpp"
 
 class Emulator;
 
@@ -13,6 +14,7 @@ class CPU
     private:
         Emulator* e;
         Cop0 cop0;
+        GTE gte; //cop2
         uint32_t gpr[32];
         uint32_t PC;
         uint32_t LO, HI;
@@ -44,7 +46,7 @@ class CPU
 
         void mfc(int cop_id, int cop_reg, int reg);
         void mtc(int cop_id, int cop_reg, int reg);
-        void mtc();
+        void ctc(int cop_id, int cop_reg, int reg);
 
         uint32_t get_PC();
         uint32_t get_gpr(int index);

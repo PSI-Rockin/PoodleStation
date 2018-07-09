@@ -41,7 +41,7 @@ struct DisplayStart
 
 struct Vertex
 {
-    uint16_t x, y;
+    int16_t x, y;
     uint16_t s, t;
     uint32_t color;
 
@@ -101,9 +101,10 @@ class GPU
         int32_t orient2D(Vertex& v1, Vertex& v2, Vertex& v3);
         void draw_quad(bool textured, bool shaded);
         void draw_tri(Vertex vertices[]);
+        void draw_rect(Vertex& corner, int width, int height);
         void draw_pixel(uint16_t x, uint16_t y, uint32_t color);
 
-        uint16_t tex_lookup(uint8_t s, uint8_t t);
+        uint16_t tex_lookup(uint32_t texpage_x, uint32_t texpage_y, uint8_t s, uint8_t t, uint8_t color_depth);
     public:
         GPU();
         ~GPU();

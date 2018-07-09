@@ -4,7 +4,7 @@
 #define CYCLES_PER_FRAME 550000
 #define CYCLES_PER_VBLANK CYCLES_PER_FRAME * 0.90
 
-Emulator::Emulator() : cpu(this), dma(this, &gpu)
+Emulator::Emulator() : cdrom(this), cpu(this), dma(this, &gpu)
 {
     BIOS = nullptr;
     RAM = nullptr;
@@ -29,8 +29,8 @@ void Emulator::reset()
 {
     if (!RAM)
         RAM = new uint8_t[1024 * 1024 * 2];
+    cdrom.reset();
     cpu.reset();
-    //cpu.set_disassembly(true);
     dma.reset(RAM);
     gpu.reset();
     timers.reset();
@@ -47,6 +47,7 @@ void Emulator::run()
     {
         if (!dma.run())
             cpu.run();
+        cdrom.run();
         timers.count(1);
         if (cycles >= CYCLES_PER_VBLANK && !VBLANK_set)
         {
@@ -89,6 +90,14 @@ uint8_t Emulator::read8(uint32_t addr)
     {
         case 0x1F000084:
             return 0;
+        case 0x1F801040:
+            return 0;
+        case 0x1F801800:
+            return cdrom.read_reg1();
+        case 0x1F801801:
+            return cdrom.read_reg2();
+        case 0x1F801803:
+            return cdrom.read_reg4();
     }
     printf("[CPU] Unrecognized read8 from $%08X!\n", addr);
     exit(1);
@@ -100,14 +109,22 @@ uint16_t Emulator::read16(uint32_t addr)
         return *(uint16_t*)&RAM[addr & 0x1FFFFF];
     if (addr >= 0x1FC00000)
         return *(uint16_t*)&BIOS[addr & 0x7FFFF];
+    if (addr >= 0x1F801100 && addr < 0x1F801130)
+        return timers.read16(addr);
     if (addr >= 0x1F801C00 && addr < 0x1F801F00)
     {
         printf("[SPU] Read16 $%08X\n", addr);
         return 0;
     }
-    printf("[CPU] Read16: $%08X\n", addr);
     switch (addr)
     {
+        case 0x1F801044:
+            printf("[PAD] JOY_STAT\n");
+            //cpu.set_disassembly(true);
+            return 0x7;
+        case 0x1F80104A:
+            printf("[PAD] JOY_CTRL\n");
+            return 0;
         case 0x1F801070:
             return I_STAT;
         case 0x1F801074:
@@ -151,8 +168,6 @@ uint32_t Emulator::read32(uint32_t addr)
 
 void Emulator::write8(uint32_t addr, uint8_t value)
 {
-    if (addr >= 0x00138CFC && addr < 0x00138D00)
-        printf("Write8 special $%08X: $%02X\n", addr, value);
     if (addr < 0x00200000)
     {
         RAM[addr & 0x1FFFFF] = value;
@@ -160,6 +175,21 @@ void Emulator::write8(uint32_t addr, uint8_t value)
     }
     switch (addr)
     {
+        case 0x1F801040:
+            printf("[JOY] Write FIFO: $%02X\n", value);
+            return;
+        case 0x1F801800:
+            cdrom.write_reg1(value);
+            return;
+        case 0x1F801801:
+            cdrom.write_reg2(value);
+            return;
+        case 0x1F801802:
+            cdrom.write_reg3(value);
+            return;
+        case 0x1F801803:
+            cdrom.write_reg4(value);
+            return;
         case 0x1F802041:
             printf("[Emulator] POST: $%02X\n", value);
             return;
@@ -170,11 +200,14 @@ void Emulator::write8(uint32_t addr, uint8_t value)
 
 void Emulator::write16(uint32_t addr, uint16_t value)
 {
-    if (addr >= 0x00138CFC && addr < 0x00138D00)
-        printf("Write16 special $%08X: $%04X\n", addr, value);
     if (addr < 0x00200000)
     {
         *(uint16_t*)&RAM[addr & 0x1FFFFF] = value;
+        return;
+    }
+    if (addr >= 0x1F801040 && addr < 0x1F801050)
+    {
+        printf("[JOY] Write16 $%08X: $%04X\n", addr, value);
         return;
     }
     if (addr >= 0x1F801100 && addr < 0x1F801130)

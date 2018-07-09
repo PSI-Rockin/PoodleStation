@@ -15,7 +15,9 @@ SOURCES += main.cpp \
     disasm.cpp \
     timers.cpp \
     dma.cpp \
-    gpu.cpp
+    gpu.cpp \
+    cdrom.cpp \
+    gte.cpp
 
 HEADERS += \
     emuwindow.hpp \
@@ -27,4 +29,6 @@ HEADERS += \
     disasm.hpp \
     timers.hpp \
     dma.hpp \
-    gpu.hpp
+    gpu.hpp \
+    cdrom.hpp \
+    gte.hpp
